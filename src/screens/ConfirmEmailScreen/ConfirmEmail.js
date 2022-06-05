@@ -1,4 +1,11 @@
-import {StyleSheet, Text, View, ScrollView, StatusBar} from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  StatusBar,
+  Alert,
+} from 'react-native';
 import CustomInput from '../../components/CustomInput';
 import * as React from 'react';
 import CustomButton from '../../components/CustomButtom';
@@ -7,6 +14,11 @@ import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {TextInput} from 'react-native-paper';
 import {useNavigation} from '@react-navigation/native';
 import {useForm} from 'react-hook-form';
+import {useRoute} from '@react-navigation/native';
+import {Amplify, Auth} from 'aws-amplify';
+import awsconfig from '../../aws-exports';
+
+Amplify.configure(awsconfig);
 
 const TInput = ({value, setValue, text}) => {
   return (
@@ -29,17 +41,41 @@ const TInput = ({value, setValue, text}) => {
 };
 
 const ConfirmEmail = () => {
-  const [username, setUsername] = React.useState('');
-  const [confirmationCode, setConfirmationCode] = React.useState('');
+  const route = useRoute();
   const navigation = useNavigation();
-  const {control, handleSubmit} = useForm();
-  const onConfirmPressed = () => {
-    console.log('Confirmation Button Pressed');
-    navigation.navigate('Home');
+  const {control, handleSubmit, watch} = useForm({
+    defaultValues: {username: route?.params?.username},
+  });
+
+  const [loading, setLoading] = React.useState(false);
+  const [resendLoading, setResendLoading] = React.useState(false);
+
+  const username = watch('username');
+
+  const onConfirmPressed = async data => {
+    setLoading(true);
+    try {
+      const response = await Auth.confirmSignUp(
+        data.username,
+        data.confirmationcode,
+      );
+      navigation.navigate('SignIn');
+    } catch (err) {
+      Alert.alert('Oops', err.message);
+    }
+    setLoading(false);
   };
 
-  const onResendCodePressed = () => {
-    console.log('Resend Code Pressed');
+  const onResendCodePressed = async () => {
+    setResendLoading(true);
+    try {
+      const response = await Auth.resendSignUp(username);
+      console.log(response);
+      Alert.alert('Success', 'Code resent successfully.');
+    } catch (err) {
+      Alert.alert('Failed to resend verification code', err.message);
+    }
+    setResendLoading(false);
   };
 
   const onBackToSignInPressed = () => {
@@ -71,7 +107,7 @@ const ConfirmEmail = () => {
 
         <CustomButton
           onPress={handleSubmit(onConfirmPressed)}
-          text="Confirm"
+          text={loading ? 'Confirming...' : 'Confirm'}
           type="CONFIRM"
         />
         <View
@@ -82,7 +118,9 @@ const ConfirmEmail = () => {
             paddingHorizontal: 30,
             paddingVertical: 20,
           }}>
-          <Text style={{color: '#F4BB44'}} onPress={onResendCodePressed}>
+          <Text
+            style={{color: resendLoading ? 'gray' : '#F4BB44'}}
+            onPress={onResendCodePressed}>
             Resend Code
           </Text>
           <Text

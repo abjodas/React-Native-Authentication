@@ -1,4 +1,11 @@
-import {StyleSheet, Text, View, ScrollView, StatusBar} from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  StatusBar,
+  Alert,
+} from 'react-native';
 import CustomInput from '../../components/CustomInput';
 import * as React from 'react';
 import CustomButton from '../../components/CustomButtom';
@@ -6,6 +13,10 @@ import Icon from 'react-native-vector-icons/AntDesign';
 import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useNavigation} from '@react-navigation/native';
 import {useForm} from 'react-hook-form';
+import {Amplify, Auth} from 'aws-amplify';
+import awsconfig from '../../aws-exports';
+
+Amplify.configure(awsconfig);
 
 const EMAIL_REGEX =
   /(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/;
@@ -13,13 +24,32 @@ const EMAIL_REGEX =
 const SignUpScreen = () => {
   const navigation = useNavigation();
   const {control, handleSubmit, watch} = useForm();
+  const [loading, setLoading] = React.useState(false);
 
   const pwd = watch('password');
 
-  const onRegisterPress = data => {
-    console.log('Register');
-    navigation.navigate('ConfirmEmail');
-    console.log(data);
+  const onRegisterPress = async data => {
+    // console.log('Register');
+    // navigation.navigate('ConfirmEmail');
+    // console.log(data);
+
+    if (loading) {
+      return;
+    }
+    setLoading(true);
+    const {username, password, email, fullname} = data;
+    try {
+      const response = await Auth.signUp({
+        username,
+        password,
+        attributes: {email, name: fullname, preferred_username: username},
+      });
+      navigation.navigate('ConfirmEmail', {username});
+    } catch (e) {
+      Alert.alert('oops', e.message);
+    }
+
+    setLoading(false);
   };
 
   const onSignInWithFacebookPressed = () => {
@@ -71,6 +101,22 @@ const SignUpScreen = () => {
             },
           }}
           name="username"
+        />
+        <CustomInput
+          placeholder="Full Name"
+          control={control}
+          rules={{
+            required: 'Full Name is required',
+            minLength: {
+              value: 3,
+              message: 'Full Name should be at least 3 characters',
+            },
+            maxLength: {
+              value: 24,
+              message: 'Full Name must be at most 24 characters',
+            },
+          }}
+          name="fullname"
         />
 
         <CustomInput

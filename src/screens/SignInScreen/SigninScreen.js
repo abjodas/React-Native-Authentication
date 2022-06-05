@@ -5,7 +5,9 @@ import {
   Image,
   useWindowDimensions,
   ScrollView,
-  TextInput,
+  TouchableOpacity,
+  TouchableHighlight,
+  Alert,
 } from 'react-native';
 import * as React from 'react';
 import Logo from '../../../assets/images/logo.png';
@@ -15,23 +17,71 @@ import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import CustomButtom from '../../components/CustomButtom';
 import {useNavigation} from '@react-navigation/native';
 import {useForm} from 'react-hook-form';
+import {Auth, Amplify} from 'aws-amplify';
+import awsconfig from '../../aws-exports';
+
+Amplify.configure(awsconfig);
 
 const SigninScreen = props => {
   const {height} = useWindowDimensions();
 
   const navigation = useNavigation();
 
-  const {control, handleSubmit} = useForm();
+  const {control, handleSubmit, watch} = useForm();
+  const [loading, setLoading] = React.useState(false);
+  const [userConfirmed, setUserConfirmed] = React.useState(true);
+  const username = watch('username');
 
   const onForgotPasswordPressed = () => {
     console.log('Forgot Password');
     navigation.navigate('ForgotPassword');
   };
-  const onSignInPressed = data => {
-    console.log('Sign In');
-    console.log(data);
+  const userNotConfirmed = () => {
+    return (
+      <View style={{marginTop: 20}}>
+        <Text style={{color: 'red'}}>
+          User is not verified yet!{' '}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ConfirmEmail', {username})}>
+            <Text style={{color: 'blue'}}>
+              Do you want to complete the verification now?
+            </Text>
+          </TouchableOpacity>
+        </Text>
+      </View>
+    );
+  };
+  const onSignInPressed = async data => {
+    if (loading) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await Auth.signIn(data.username, data.password);
 
-    navigation.navigate('Home');
+      navigation.navigate('Home');
+    } catch (err) {
+      if ((err.name = 'UserNotConfirmedException')) {
+        console.log(err.message);
+        if (err.message == 'Incorrect username or password.') {
+          Alert.alert('oops', err.message);
+          setUserConfirmed(true);
+        }
+        if (err.message == 'User is not confirmed.') {
+          setUserConfirmed(false);
+          Alert.alert('oops', err.message);
+        } else {
+          setUserConfirmed(true);
+          Alert.alert('oops', err.message);
+        }
+      }
+    }
+    setLoading(false);
+
+    // console.log('Sign In');
+    // console.log(data);
+
+    // navigation.navigate('Home');
   };
 
   const onSignInWithFacebookPressed = () => {
@@ -91,7 +141,11 @@ const SigninScreen = props => {
           password={true}
         />
 
-        <CustomButtom text="Sign In" onPress={handleSubmit(onSignInPressed)} />
+        <CustomButtom
+          text={loading ? 'Loading...' : 'Sign In'}
+          onPress={handleSubmit(onSignInPressed)}
+        />
+        {userConfirmed == false && userNotConfirmed()}
         <CustomButtom
           text="Forgot Password?"
           onPress={onForgotPasswordPressed}

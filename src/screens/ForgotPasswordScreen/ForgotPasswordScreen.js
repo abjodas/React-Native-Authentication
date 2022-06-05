@@ -1,23 +1,41 @@
-import {StyleSheet, Text, View, ScrollView, StatusBar} from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  StatusBar,
+  Alert,
+} from 'react-native';
 
 import * as React from 'react';
 import CustomButton from '../../components/CustomButtom';
-import Icon from 'react-native-vector-icons/AntDesign';
-import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
-import {TextInput} from 'react-native-paper';
 import {useNavigation} from '@react-navigation/native';
 import CustomInput from '../../components/CustomInput';
 import {useForm} from 'react-hook-form';
+import {Amplify, Auth} from 'aws-amplify';
+import awsconfig from '../../aws-exports';
+
+Amplify.configure(awsconfig);
 
 const ForgotPasswordScreen = () => {
-  const [username, setUsername] = React.useState('');
-  const [confirmationCode, setConfirmationCode] = React.useState('');
   const navigation = useNavigation();
-  const {control, handleSubmit} = useForm();
+  const {control, handleSubmit, watch} = useForm();
+  const [loading, setLoading] = React.useState(false);
 
-  const onSendPressed = () => {
-    console.log('Send Button Pressed');
-    navigation.navigate('NewPassword');
+  const username = watch('username');
+
+  const onSendPressed = async data => {
+    // console.log('Send Button Pressed');
+    // navigation.navigate('NewPassword');
+    setLoading(true);
+    try {
+      const response = await Auth.forgotPassword(data.username);
+      console.log(response);
+      navigation.navigate('NewPassword', {username});
+    } catch (err) {
+      Alert.alert('Oops', err.message);
+    }
+    setLoading(false);
   };
 
   const onBackToSignInPressed = () => {
@@ -49,7 +67,7 @@ const ForgotPasswordScreen = () => {
         />
         <CustomButton
           onPress={handleSubmit(onSendPressed)}
-          text="Send"
+          text={loading ? 'Sending ...' : 'Send'}
           type="CONFIRM"
         />
 

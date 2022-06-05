@@ -1,40 +1,45 @@
-import {StyleSheet, Text, View, ScrollView, StatusBar} from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  StatusBar,
+  Alert,
+} from 'react-native';
 import CustomInput from '../../components/CustomInput';
 import * as React from 'react';
 import CustomButton from '../../components/CustomButtom';
-import Icon from 'react-native-vector-icons/AntDesign';
-import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
-import {TextInput} from 'react-native-paper';
 import {useNavigation} from '@react-navigation/native';
 import {useForm} from 'react-hook-form';
+import {Amplify, Auth} from 'aws-amplify';
+import awsconfig from '../../aws-exports';
+import {useRoute} from '@react-navigation/native';
 
-const TInput = ({value, setValue, text}) => {
-  return (
-    <TextInput
-      label={text}
-      value={value}
-      onChangeText={text => setValue(text)}
-      style={{
-        width: '90%',
-        backgroundColor: '#fff',
-        //   borderWidth: 1,
-        //   borderColor: 'rgba(0,0,0,0.3)',
-        height: 40,
-      }}
-      mode="outlined"
-      outlineColor="#F4BB44"
-      activeOutlineColor="#F4BB44"
-    />
-  );
-};
+Amplify.configure(awsconfig);
 
 const NewPasswordScreen = () => {
-  const [confirmationCode, setConfirmationCode] = React.useState('');
-  const [newPassword, setNewPassword] = React.useState('');
+  const route = useRoute();
+  const {control, handleSubmit, watch} = useForm({
+    defaultValues: {username: route?.params?.username},
+  });
   const navigation = useNavigation();
-  const onSubmitPressed = () => {
-    console.log('Submit Button Pressed');
-    navigation.navigate('Home');
+
+  const pwd = watch('password');
+
+  const onSubmitPressed = async data => {
+    // console.log('Submit Button Pressed');
+    // navigation.navigate('Home');
+
+    try {
+      const response = await Auth.forgotPasswordSubmit(
+        data.username,
+        data.code,
+        data.password,
+      );
+      navigation.navigate('SignIn');
+    } catch (err) {
+      Alert.alert('Oops', err.message);
+    }
   };
 
   const onBackToSignInPressed = () => {
@@ -49,19 +54,40 @@ const NewPasswordScreen = () => {
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerText}>Reset Password</Text>
         </View>
-        <TInput
-          value={confirmationCode}
-          setValue={setConfirmationCode}
-          text="Confirmation Code"
+        <CustomInput
+          control={control}
+          placeholder="Username"
+          name="username"
+          rules={{required: 'Username is required'}}
         />
-
-        <TInput
-          value={newPassword}
-          setValue={setNewPassword}
-          text="New Password"
+        <CustomInput
+          control={control}
+          placeholder="Confirmation Code"
+          name="code"
+          rules={{required: 'Comfirmation code is required'}}
+          iconName="form-textbox-password"
         />
-
-        <CustomButton onPress={onSubmitPressed} text="Submit" type="CONFIRM" />
+        <CustomInput
+          control={control}
+          placeholder="New Password"
+          name="password"
+          rules={{required: 'Password is required'}}
+          iconName="form-textbox-password"
+          password={true}
+        />
+        <CustomInput
+          control={control}
+          placeholder="Confirm New Password"
+          name="confirmpassword"
+          rules={{validate: value => value === pwd || 'Passwords do not match'}}
+          iconName="form-textbox-password"
+          password={true}
+        />
+        <CustomButton
+          onPress={handleSubmit(onSubmitPressed)}
+          text="Submit"
+          type="CONFIRM"
+        />
 
         <Text
           style={{color: '#F4BB44', fontWeight: '700', marginTop: 20}}
